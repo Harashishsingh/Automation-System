@@ -1,0 +1,886 @@
+{% load static %}
+
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+```
+<title>SupportAI — Decision Log</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+<style>
+    :root {
+        --ink: #0c1220;
+        --panel: #131c2e;
+        --panel-2: #182338;
+        --line-soft: #1d2740;
+        --text: #eef1f8;
+        --text-muted: #8894ab;
+        --text-faint: #5a6580;
+
+        --signal: #5eead4;
+        --signal-dim: rgba(94, 234, 212, .14);
+
+        --escalate: #ff9166;
+        --escalate-dim: rgba(255, 145, 102, .14);
+
+        --resolved: #8fe08f;
+        --resolved-dim: rgba(143, 224, 143, .14);
+
+        --pending: #e8c464;
+        --pending-dim: rgba(232, 196, 100, .14);
+
+        --violet: #b3a2ff;
+        --violet-dim: rgba(179, 162, 255, .14);
+
+        --radius: 14px;
+        --shadow-lg: 0 20px 50px -20px rgba(0, 0, 0, .6);
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        background:
+            radial-gradient(
+                1200px 600px at 85% -10%,
+                rgba(94, 234, 212, .07),
+                transparent 60%
+            ),
+            radial-gradient(
+                900px 500px at -10% 20%,
+                rgba(179, 162, 255, .05),
+                transparent 55%
+            ),
+            var(--ink);
+
+        color: var(--text);
+        font-family: 'Inter', sans-serif;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #26324a;
+        border-radius: 8px;
+    }
+
+    a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .mono {
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    main {
+        padding: 30px 36px 60px;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    .page-eyebrow {
+        font-size: 11.5px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--signal);
+        font-weight: 600;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--signal);
+        box-shadow: 0 0 0 0 rgba(94, 234, 212, .6);
+        animation: pulseDot 2s ease-out infinite;
+    }
+
+    @keyframes pulseDot {
+        0% {
+            box-shadow: 0 0 0 0 rgba(94, 234, 212, .55);
+        }
+
+        70% {
+            box-shadow: 0 0 0 9px rgba(94, 234, 212, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(94, 234, 212, 0);
+        }
+    }
+
+    h1 {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -.3px;
+    }
+
+    .page-sub {
+        color: var(--text-muted);
+        font-size: 14px;
+        margin-top: 6px;
+        max-width: 700px;
+        line-height: 1.6;
+    }
+
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 14px;
+        margin-top: 24px;
+    }
+
+    .stat-card {
+        background: var(--panel);
+        border: 1px solid var(--line-soft);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+    }
+
+    .stat-icon svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    .stat-icon.c-signal {
+        background: var(--signal-dim);
+        color: var(--signal);
+    }
+
+    .stat-icon.c-resolved {
+        background: var(--resolved-dim);
+        color: var(--resolved);
+    }
+
+    .stat-icon.c-escalate {
+        background: var(--escalate-dim);
+        color: var(--escalate);
+    }
+
+    .stat-icon.c-pending {
+        background: var(--pending-dim);
+        color: var(--pending);
+    }
+
+    .stat-icon.c-violet {
+        background: var(--violet-dim);
+        color: var(--violet);
+    }
+
+    .stat-value {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -.3px;
+    }
+
+    .stat-label {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 3px;
+    }
+
+    .table-wrap {
+        margin-top: 24px;
+        background: var(--panel);
+        border: 1px solid var(--line-soft);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .d-head,
+    .d-row {
+        display: grid;
+
+        grid-template-columns:
+            60px
+            150px
+            170px
+            130px
+            130px
+            120px
+            180px
+            130px
+            100px
+            180px
+            150px;
+
+        gap: 14px;
+        align-items: center;
+        padding: 14px 20px;
+        min-width: 1550px;
+    }
+
+    .d-head {
+        background: var(--panel-2);
+        border-bottom: 1px solid var(--line-soft);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .7px;
+        color: var(--text-faint);
+        font-weight: 600;
+    }
+
+    .d-row {
+        border-bottom: 1px solid var(--line-soft);
+        font-size: 13px;
+        transition: background .15s ease;
+    }
+
+    .d-row:last-child {
+        border-bottom: none;
+    }
+
+    .d-row:hover {
+        background: var(--panel-2);
+    }
+
+    .t-id {
+        color: var(--text-faint);
+    }
+
+    .ticket-title {
+        color: var(--text);
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    .customer-name {
+        color: var(--text-muted);
+        line-height: 1.4;
+    }
+
+    .timestamp {
+        color: var(--text-faint);
+        font-size: 11px;
+        line-height: 1.5;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 11.5px;
+        font-weight: 600;
+        width: fit-content;
+        background: rgba(136, 148, 171, .14);
+        color: var(--text-muted);
+    }
+
+    .badge .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    .badge.refund {
+        background: var(--pending-dim);
+        color: var(--pending);
+    }
+
+    .badge.account {
+        background: var(--signal-dim);
+        color: var(--signal);
+    }
+
+    .badge.billing {
+        background: var(--violet-dim);
+        color: var(--violet);
+    }
+
+    .badge.payment {
+        background: var(--violet-dim);
+        color: var(--violet);
+    }
+
+    .badge.order {
+        background: var(--signal-dim);
+        color: var(--signal);
+    }
+
+    .badge.unknown {
+        background: rgba(136, 148, 171, .14);
+        color: var(--text-muted);
+    }
+
+    .action-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 11px;
+        border-radius: 100px;
+        font-size: 11px;
+        font-weight: 700;
+        width: fit-content;
+    }
+
+    .action-pill.resolve {
+        background: var(--resolved-dim);
+        color: var(--resolved);
+    }
+
+    .action-pill.escalate {
+        background: var(--escalate-dim);
+        color: var(--escalate);
+    }
+
+    .action-pill.draft {
+        background: var(--pending-dim);
+        color: var(--pending);
+    }
+
+    .confidence {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 90px;
+    }
+
+    .confidence-top {
+        font-size: 11px;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--text-muted);
+    }
+
+    .bar-track {
+        height: 5px;
+        border-radius: 4px;
+        background: var(--line-soft);
+        overflow: hidden;
+    }
+
+    .bar-fill {
+        height: 100%;
+        border-radius: 4px;
+    }
+
+    .bar-fill.high {
+        background: var(--resolved);
+    }
+
+    .bar-fill.mid {
+        background: var(--pending);
+    }
+
+    .bar-fill.low {
+        background: var(--escalate);
+    }
+
+    .rule-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 11.5px;
+        font-weight: 600;
+        background: var(--violet-dim);
+        color: var(--violet);
+        width: fit-content;
+    }
+
+    .no-rule {
+        color: var(--text-faint);
+        font-size: 12px;
+    }
+
+    .override-flag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        background: var(--escalate-dim);
+        color: var(--escalate);
+        width: fit-content;
+    }
+
+    .no-override {
+        color: var(--text-faint);
+        font-size: 12px;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        width: fit-content;
+        background: rgba(136, 148, 171, .14);
+        color: var(--text-muted);
+    }
+
+    .status-pill.open {
+        background: var(--pending-dim);
+        color: var(--pending);
+    }
+
+    .status-pill.progress {
+        background: var(--violet-dim);
+        color: var(--violet);
+    }
+
+    .status-pill.resolved {
+        background: var(--resolved-dim);
+        color: var(--resolved);
+    }
+
+    .status-pill.escalated {
+        background: var(--escalate-dim);
+        color: var(--escalate);
+    }
+
+    .reason-text {
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    .empty-state {
+        padding: 70px 20px;
+        text-align: center;
+        color: var(--text-muted);
+    }
+
+    .empty-state h3 {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 16px;
+        color: var(--text);
+        margin-bottom: 6px;
+    }
+
+    @media (max-width: 1200px) {
+        .stats-row {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 900px) {
+        main {
+            padding: 20px 16px 40px;
+        }
+
+        h1 {
+            font-size: 24px;
+        }
+
+        .stats-row {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 500px) {
+        .stats-row {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+```
+
+</head>
+
+<body>
+
+```
+<main>
+
+    <div class="page-eyebrow">
+        <span class="pulse-dot"></span>
+        Transparency
+    </div>
+
+    <h1>Decision Log</h1>
+
+    <p class="page-sub">
+        Historical record of every ticket decision — including the original ML prediction,
+        confidence, safety rule, final action, current ticket status, human override,
+        and decision reason.
+    </p>
+
+
+    <!-- ===================== STATS ===================== -->
+
+    <div class="stats-row">
+
+        <div class="stat-card">
+
+            <div class="stat-icon c-signal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 6h16M4 12h16M4 18h10" />
+                </svg>
+            </div>
+
+            <div class="stat-value">
+                {{ total_tickets }}
+            </div>
+
+            <div class="stat-label">
+                Total decisions
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon c-resolved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 12l6 6L20 6" />
+                </svg>
+            </div>
+
+            <div class="stat-value">
+                {{ resolved_count }}
+            </div>
+
+            <div class="stat-label">
+                Auto-resolved
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon c-escalate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                        d="M12 9v4M12 17h.01M10.3 3.9L2.6 18a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" />
+                </svg>
+            </div>
+
+            <div class="stat-value">
+                {{ escalated_count }}
+            </div>
+
+            <div class="stat-label">
+                Escalated
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon c-pending">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 3" />
+                </svg>
+            </div>
+
+            <div class="stat-value">
+                {{ draft_count }}
+            </div>
+
+            <div class="stat-label">
+                Drafted
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon c-violet">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 8l4 4-4 4M3 12h18" />
+                </svg>
+            </div>
+
+            <div class="stat-value">
+                {{ overridden_count }}
+            </div>
+
+            <div class="stat-label">
+                Overridden by human
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================== DECISION TABLE ===================== -->
+
+    <div class="table-wrap">
+
+        <div class="table-scroll">
+
+            <div class="d-head">
+
+                <span>ID</span>
+                <span>Ticket</span>
+                <span>Customer</span>
+                <span>Category</span>
+                <span>ML Prediction</span>
+                <span>Confidence</span>
+                <span>Safety Rule</span>
+                <span>Final Action</span>
+                <span>Status</span>
+                <span>Reason</span>
+                <span>Created</span>
+
+            </div>
+
+
+            {% for t in logs %}
+
+            <div class="d-row">
+
+                <!-- ================= ID ================= -->
+
+                <span class="t-id mono">
+                    #{{ t.id }}
+                </span>
+
+
+                <!-- ================= TICKET TITLE ================= -->
+
+                <span class="ticket-title">
+                    {{ t.ticket.title|default:"Untitled ticket" }}
+                </span>
+
+
+                <!-- ================= CUSTOMER ================= -->
+
+                <span class="customer-name">
+                    {{ t.ticket.customer_name|default:"Unknown customer" }}
+                </span>
+
+
+                <!-- ================= CATEGORY ================= -->
+
+                <span>
+
+                    <span class="badge {{ t.category|default:'unknown'|lower }}">
+
+                        <span class="dot"></span>
+
+                        {{ t.category|default:"—"|capfirst }}
+
+                    </span>
+
+                </span>
+
+
+                <!-- ================= ML PREDICTION ================= -->
+
+                <span>
+
+                    <span class="action-pill {{ t.ml_predicted_action|default:'draft'|lower }}">
+
+                        {{ t.ml_predicted_action|default:"—"|capfirst }}
+
+                    </span>
+
+                </span>
+
+
+                <!-- ================= CONFIDENCE ================= -->
+
+                <span class="confidence">
+
+                    {% if t.confidence != None %}
+
+                        <span class="confidence-top">
+                            {{ t.confidence|floatformat:2 }}
+                        </span>
+
+                        <span class="bar-track">
+
+                            <span
+                                class="bar-fill
+                                {% if t.confidence >= 0.90 %}
+                                    high
+                                {% elif t.confidence >= 0.70 %}
+                                    mid
+                                {% else %}
+                                    low
+                                {% endif %}"
+                                style="width: {% widthratio t.confidence 1 100 %}%;">
+                            </span>
+
+                        </span>
+
+                    {% else %}
+
+                        <span class="no-rule">
+                            —
+                        </span>
+
+                    {% endif %}
+
+                </span>
+
+
+                <!-- ================= SAFETY RULE ================= -->
+
+                <span>
+
+                    {% if t.safety_rule_applied %}
+
+                        <span class="rule-chip">
+                            {{ t.safety_rule_applied.name }}
+                        </span>
+
+                    {% else %}
+
+                        <span class="no-rule">
+                            None
+                        </span>
+
+                    {% endif %}
+
+                </span>
+
+
+                <!-- ================= FINAL ACTION ================= -->
+
+                <span>
+
+                    <span class="action-pill {{ t.final_action|default:'draft'|lower }}">
+
+                        {{ t.final_action|default:"—"|capfirst }}
+
+                    </span>
+
+                </span>
+
+
+                <!-- ================= CURRENT STATUS ================= -->
+
+                <span>
+
+                    <span class="status-pill {{ t.ticket.status|default:'open'|lower }}">
+
+                        {{ t.ticket.status|default:"open"|capfirst }}
+
+                    </span>
+
+                </span>
+
+
+                <!-- ================= REASON ================= -->
+
+                <span class="reason-text">
+                    {{ t.reason|default:"—" }}
+                </span>
+
+
+                <!-- ================= HUMAN OVERRIDE ================= -->
+
+                <span>
+
+                    {% if t.ticket.was_overridden_by_human %}
+
+                        <span class="override-flag">
+                            Yes
+                        </span>
+
+                    {% else %}
+
+                        <span class="no-override">
+                            No
+                        </span>
+
+                    {% endif %}
+
+                </span>
+
+
+                <!-- ================= CREATED ================= -->
+
+                <span class="timestamp mono">
+
+                    {{ t.created_at|date:"d M Y" }}
+
+                    <br>
+
+                    {{ t.created_at|date:"H:i" }}
+
+                </span>
+
+            </div>
+
+
+            {% empty %}
+
+            <div class="empty-state">
+
+                <h3>No decisions yet</h3>
+
+                <p>
+                    Create a ticket to generate the first decision log entry.
+                </p>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+</main>
+```
+
+</body>
+
+</html>

@@ -1,0 +1,847 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SupportAI — Ticket Queue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0c1220;
+    --panel:#131c2e;
+    --panel-2:#182338;
+    --line:#26324a;
+    --line-soft:#1d2740;
+    --text:#eef1f8;
+    --text-muted:#8894ab;
+    --text-faint:#5a6580;
+
+    --signal:#5eead4;
+    --signal-dim:rgba(94,234,212,.14);
+    --escalate:#ff9166;
+    --escalate-dim:rgba(255,145,102,.14);
+    --resolved:#8fe08f;
+    --resolved-dim:rgba(143,224,143,.14);
+    --pending:#e8c464;
+    --pending-dim:rgba(232,196,100,.14);
+    --violet:#b3a2ff;
+
+    --radius:14px;
+    --shadow-lg: 0 20px 50px -20px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(94,234,212,.07), transparent 60%),
+      radial-gradient(900px 500px at -10% 20%, rgba(179,162,255,.05), transparent 55%),
+      var(--ink);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--signal); color:#04211c; }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover{ background:#39476a; }
+
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; }
+
+  .mono{ font-family:'JetBrains Mono', monospace; }
+  .display{ font-family:'Space Grotesk', sans-serif; }
+
+  .app{ display:grid; grid-template-columns:260px 1fr; min-height:100vh; }
+
+  /* ===================== SIDEBAR ===================== */
+  .sidebar{
+    background:linear-gradient(180deg, #0e1524, #0a0f1a);
+    border-right:1px solid var(--line-soft);
+    padding:26px 18px;
+    display:flex; flex-direction:column; gap:28px;
+    position:sticky; top:0; height:100vh;
+    z-index:70;
+    transition:transform .3s ease;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px; }
+  .brand-mark{
+    width:34px; height:34px; border-radius:10px;
+    background:conic-gradient(from 220deg, var(--signal), var(--violet), var(--signal));
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; color:#07161a;
+    font-size:15px;
+    box-shadow:0 0 0 1px rgba(94,234,212,.25), 0 8px 20px -6px rgba(94,234,212,.45);
+    animation:markSpin 8s linear infinite;
+    flex-shrink:0;
+  }
+  @keyframes markSpin{ to{ filter:hue-rotate(30deg); } }
+  .brand-name{ font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:17px; letter-spacing:.2px; }
+  .brand-sub{ font-size:11px; color:var(--text-faint); letter-spacing:.4px; text-transform:uppercase; }
+
+  .sidebar-close{
+    display:none;
+    margin-left:auto;
+    width:32px; height:32px; border-radius:9px;
+    align-items:center; justify-content:center;
+    background:var(--panel-2); border:1px solid var(--line);
+    color:var(--text-muted);
+  }
+  .sidebar-close svg{ width:16px; height:16px; }
+
+  .nav-group{ display:flex; flex-direction:column; gap:2px; }
+  .nav-label{
+    font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase;
+    color:var(--text-faint); padding:6px 12px 8px; font-weight:600;
+  }
+  .nav-item{
+    display:flex; align-items:center; gap:11px;
+    padding:10px 12px; border-radius:10px;
+    color:var(--text-muted); font-size:14px; font-weight:500;
+    position:relative;
+    transition:background .18s ease, color .18s ease, transform .18s ease;
+  }
+  .nav-item svg{ width:17px; height:17px; opacity:.85; flex-shrink:0; }
+  .nav-item:hover{ background:var(--panel-2); color:var(--text); transform:translateX(2px); }
+  .nav-item.active{
+    background:linear-gradient(90deg, var(--signal-dim), transparent);
+    color:var(--text);
+    box-shadow:inset 2px 0 0 var(--signal);
+  }
+  .nav-badge{
+    margin-left:auto; font-size:10.5px; font-family:'JetBrains Mono', monospace;
+    background:var(--escalate-dim); color:var(--escalate);
+    padding:2px 7px; border-radius:20px; font-weight:600;
+  }
+
+  .sidebar-footer{
+    margin-top:auto; padding:14px; border-radius:12px;
+    background:var(--panel); border:1px solid var(--line-soft);
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .agent-status{ display:flex; align-items:center; gap:9px; }
+  .pulse-dot{
+    width:8px; height:8px; border-radius:50%; background:var(--signal);
+    box-shadow:0 0 0 0 rgba(94,234,212,.6);
+    animation:pulseDot 2s ease-out infinite;
+    flex-shrink:0;
+  }
+  @keyframes pulseDot{
+    0%{ box-shadow:0 0 0 0 rgba(94,234,212,.55); }
+    70%{ box-shadow:0 0 0 9px rgba(94,234,212,0); }
+    100%{ box-shadow:0 0 0 0 rgba(94,234,212,0); }
+  }
+  .agent-status-text{ font-size:12.5px; font-weight:600; }
+  .agent-status-sub{ font-size:11px; color:var(--text-faint); }
+  .mini-stat-row{ display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); }
+  .mini-stat-row b{ color:var(--text); font-family:'JetBrains Mono', monospace; }
+
+  /* ===================== SIDEBAR OVERLAY (mobile/tablet) ===================== */
+  .sidebar-overlay{
+    display:none;
+    position:fixed; inset:0; background:rgba(6,9,16,.6);
+    z-index:60; opacity:0; pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .sidebar-overlay.show{ opacity:1; pointer-events:auto; }
+
+  .mobile-topbar{
+    display:none;
+    align-items:center; gap:12px;
+    padding:14px 18px;
+    background:var(--panel);
+    border-bottom:1px solid var(--line-soft);
+    position:sticky; top:0; z-index:50;
+  }
+  .menu-btn{
+    width:38px; height:38px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--panel-2); border:1px solid var(--line);
+    color:var(--text); flex-shrink:0;
+  }
+  .menu-btn svg{ width:19px; height:19px; }
+  .mobile-topbar .brand-name{ font-size:15px; }
+  .mobile-topbar .brand-mark{ width:28px; height:28px; font-size:13px; }
+
+  /* ===================== MAIN ===================== */
+  main{ padding:30px 36px 60px; max-width:1400px; }
+
+  .topbar{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:26px; gap:20px; flex-wrap:wrap; }
+  .page-eyebrow{
+    font-size:11.5px; letter-spacing:1.5px; text-transform:uppercase;
+    color:var(--signal); font-weight:600; margin-bottom:6px;
+    display:flex; align-items:center; gap:8px;
+  }
+  h1{ font-family:'Space Grotesk', sans-serif; font-size:30px; font-weight:600; letter-spacing:-.3px; }
+  .page-sub{ color:var(--text-muted); font-size:14px; margin-top:6px; max-width:520px; }
+
+  .topbar-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .search-box{
+    display:flex; align-items:center; gap:9px;
+    background:var(--panel); border:1px solid var(--line);
+    padding:10px 14px; border-radius:11px; width:260px;
+    transition:border-color .18s ease, box-shadow .18s ease;
+  }
+  .search-box:focus-within{ border-color:var(--signal); box-shadow:0 0 0 3px var(--signal-dim); }
+  .search-box svg{ width:15px; height:15px; color:var(--text-faint); flex-shrink:0; }
+  .search-box input{
+    background:none; border:none; outline:none; color:var(--text);
+    font-size:13.5px; width:100%; font-family:'Inter', sans-serif;
+  }
+  .search-box input::placeholder{ color:var(--text-faint); }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:10px 16px; border-radius:11px; font-size:13.5px; font-weight:600;
+    border:1px solid var(--line); background:var(--panel); color:var(--text);
+    transition:transform .15s ease, border-color .15s ease, background .15s ease;
+    white-space:nowrap;
+  }
+  .btn:hover{ transform:translateY(-1px); border-color:#3a4869; }
+  .btn:active{ transform:translateY(0); }
+  .btn.primary{
+    background:linear-gradient(135deg, var(--signal), #38c6b0);
+    color:#052420; border:none;
+    box-shadow:0 10px 24px -10px rgba(94,234,212,.55);
+  }
+  .btn.primary:hover{ box-shadow:0 14px 30px -10px rgba(94,234,212,.7); }
+  .btn svg{ width:15px; height:15px; }
+
+  .stats-row{ display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; margin-bottom:24px; }
+  .stat-card{
+    background:var(--panel); border:1px solid var(--line-soft); border-radius:var(--radius);
+    padding:18px 20px; position:relative; overflow:hidden;
+    opacity:0; transform:translateY(14px);
+    animation:cardIn .55s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  .stat-card::after{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(120deg, transparent 20%, rgba(255,255,255,.035) 45%, transparent 70%);
+    transform:translateX(-100%);
+  }
+  .stat-card:hover::after{ animation:sheen 1.1s ease; }
+  @keyframes sheen{ to{ transform:translateX(100%); } }
+  @keyframes cardIn{ to{ opacity:1; transform:translateY(0); } }
+  .stat-card:nth-child(1){ animation-delay:.02s; }
+  .stat-card:nth-child(2){ animation-delay:.09s; }
+  .stat-card:nth-child(3){ animation-delay:.16s; }
+  .stat-card:nth-child(4){ animation-delay:.23s; }
+
+  .stat-top{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+  .stat-icon{ width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .stat-icon svg{ width:16px; height:16px; }
+  .stat-icon.c-signal{ background:var(--signal-dim); color:var(--signal); }
+  .stat-icon.c-resolved{ background:var(--resolved-dim); color:var(--resolved); }
+  .stat-icon.c-escalate{ background:var(--escalate-dim); color:var(--escalate); }
+  .stat-icon.c-pending{ background:var(--pending-dim); color:var(--pending); }
+  .stat-value{ font-family:'Space Grotesk', sans-serif; font-size:26px; font-weight:600; letter-spacing:-.3px; }
+  .stat-label{ font-size:12.5px; color:var(--text-muted); margin-top:3px; }
+
+  /* ===================== FILTER BAR ===================== */
+  .filter-bar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px; margin-bottom:16px; flex-wrap:wrap;
+  }
+  .chip-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .chip{
+    padding:8px 15px; border-radius:100px; font-size:13px; font-weight:500;
+    border:1px solid var(--line); color:var(--text-muted); background:var(--panel);
+    display:flex; align-items:center; gap:7px; white-space:nowrap;
+    transition:all .16s ease;
+  }
+  .chip:hover{ color:var(--text); border-color:#3a4869; }
+  .chip.active{ background:var(--text); color:var(--ink); border-color:var(--text); font-weight:600; }
+  .chip .count{ font-family:'JetBrains Mono', monospace; font-size:11px; opacity:.75; }
+
+  .sort-select{
+    background:var(--panel); border:1px solid var(--line); color:var(--text-muted);
+    font-size:13px; padding:8px 12px; border-radius:10px; outline:none;
+    max-width:100%;
+  }
+
+  /* ---------- Category filter dropdown ---------- */
+  .category-dropdown{ position:relative; display:inline-flex; }
+  .category-dropdown .chip.category-trigger{
+    display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+    padding:8px 15px; border-radius:100px; font-size:13px; font-weight:500;
+    border:1px solid var(--line); background:var(--panel); color:var(--text-muted);
+    transition:background .18s ease, border-color .18s ease, color .18s ease;
+  }
+  .category-dropdown .chip.category-trigger svg{ width:14px; height:14px; flex-shrink:0; opacity:.75; }
+  .category-dropdown .chip.category-trigger:hover{ color:var(--text); border-color:#3a4869; }
+  .category-dropdown.open .chip.category-trigger{
+    color:var(--ink); background:var(--signal); border-color:var(--signal); font-weight:600;
+  }
+  .category-dropdown.open .chip.category-trigger svg{ opacity:1; }
+  .category-trigger .caret{ width:13px; height:13px; opacity:.65; transition:transform .25s ease; }
+  .category-dropdown.open .caret{ transform:rotate(180deg); }
+
+  .dropdown-panel{
+    position:absolute; top:calc(100% + 8px); left:0; min-width:230px; max-width:90vw;
+    background:var(--panel); border:1px solid var(--line-soft); border-radius:12px;
+    padding:6px; box-shadow:var(--shadow-lg);
+    display:flex; flex-direction:column; gap:2px;
+    opacity:0; transform:translateY(-6px) scale(.98); pointer-events:none;
+    transition:opacity .18s ease, transform .18s ease; z-index:40;
+  }
+  .category-dropdown.open .dropdown-panel{
+    opacity:1; transform:translateY(0) scale(1); pointer-events:auto;
+  }
+  .dropdown-option{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%;
+    border:none; background:transparent; cursor:pointer;
+    padding:9px 10px; border-radius:8px;
+    font-family:'Inter', sans-serif; font-size:13px; color:var(--text-muted); text-align:left;
+    transition:background .15s ease, color .15s ease;
+  }
+  .dropdown-option:hover{ background:var(--panel-2); color:var(--text); }
+  .dropdown-option.active{ background:var(--panel-2); color:var(--text); }
+  .dropdown-option .count{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--text-faint); }
+
+  /* ===================== TICKET TABLE ===================== */
+  .table-wrap{
+    background:var(--panel); border:1px solid var(--line-soft); border-radius:var(--radius);
+    overflow:hidden; box-shadow:var(--shadow-lg);
+  }
+  .table-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .t-head{
+    display:grid;
+    grid-template-columns:38px 100px 1.6fr 140px 190px 150px 130px 90px 40px;
+    gap:14px; align-items:center; padding:13px 20px;
+    background:var(--panel-2); border-bottom:1px solid var(--line-soft);
+    font-size:11px; text-transform:uppercase; letter-spacing:.8px;
+    color:var(--text-faint); font-weight:600;
+    min-width:920px;
+  }
+  .ticket-list{ display:flex; flex-direction:column; min-width:920px; }
+  .t-row{
+    display:grid;
+    grid-template-columns:38px 100px 1.6fr 140px 190px 150px 130px 90px 40px;
+    gap:14px; align-items:center; padding:15px 20px;
+    border-bottom:1px solid var(--line-soft); font-size:13.5px; cursor:pointer;
+    position:relative; transition:background .15s ease;
+  }
+  .t-row:last-child{ border-bottom:none; }
+  .t-row:hover{ background:var(--panel-2); }
+
+  input[type="checkbox"]{ width:16px; height:16px; accent-color:var(--signal); border-radius:4px; cursor:pointer; }
+
+  .t-id{ color:var(--text-faint); }
+  .t-subject{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .t-subject-title{ font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .t-subject-preview{ color:var(--text-faint); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .t-customer{ display:flex; align-items:center; gap:8px; color:var(--text-muted); min-width:0; }
+  .t-customer span:last-child{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .avatar{
+    width:24px; height:24px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:700; color:#0a0f1a;
+    background:linear-gradient(135deg, var(--signal), var(--violet));
+  }
+
+  .badge{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:5px 10px; border-radius:8px; font-size:11.5px; font-weight:600; width:fit-content;
+  }
+  .badge .dot{ width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .badge.billing{ background:rgba(179,162,255,.14); color:var(--violet); }
+  .badge.billing .dot{ background:var(--violet); }
+  .badge.password{ background:var(--signal-dim); color:var(--signal); }
+  .badge.password .dot{ background:var(--signal); }
+  .badge.refund{ background:var(--pending-dim); color:var(--pending); }
+  .badge.refund .dot{ background:var(--pending); }
+  .badge.general{ background:rgba(136,148,171,.14); color:var(--text-muted); }
+  .badge.general .dot{ background:var(--text-muted); }
+  .badge.account{ background:var(--signal-dim); color:var(--signal); }
+  .badge.account .dot{ background:var(--signal); }
+  .badge.unknown{ background:rgba(136,148,171,.14); color:var(--text-muted); }
+  .badge.unknown .dot{ background:var(--text-muted); }
+
+  .priority-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:5px 10px; border-radius:8px; font-size:11.5px; font-weight:600; width:fit-content;
+    background:rgba(136,148,171,.14); color:var(--text-muted);
+  }
+  .priority-badge.HIGH{ background:var(--escalate-dim); color:var(--escalate); }
+  .priority-badge.MEDIUM{ background:var(--pending-dim); color:var(--pending); }
+  .priority-badge.LOW{ background:var(--resolved-dim); color:var(--resolved); }
+  .priority-badge.high{ background:var(--escalate-dim); color:var(--escalate); }
+  .priority-badge.medium{ background:var(--pending-dim); color:var(--pending); }
+  .priority-badge.low{ background:var(--resolved-dim); color:var(--resolved); }
+
+  .status-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 11px; border-radius:100px; font-size:11.5px; font-weight:700;
+    width:fit-content; letter-spacing:.2px;
+  }
+  .status-pill.resolved{ background:var(--resolved-dim); color:var(--resolved); }
+  .status-pill.escalated{ background:var(--escalate-dim); color:var(--escalate); }
+  .status-pill.open, .status-pill.progress{ background:var(--pending-dim); color:var(--pending); }
+
+  .t-time{ color:var(--text-faint); font-size:12px; font-family:'JetBrains Mono', monospace; }
+  .t-arrow{ color:var(--text-faint); display:flex; justify-content:flex-end; transition:transform .15s ease, color .15s ease; }
+  .t-row:hover .t-arrow{ transform:translateX(3px); color:var(--signal); }
+  .t-arrow svg{ width:16px; height:16px; }
+
+  .empty-state{ padding:70px 20px; text-align:center; color:var(--text-muted); }
+  .empty-state svg{ width:38px; height:38px; color:var(--text-faint); margin-bottom:14px; }
+  .empty-state h3{ font-family:'Space Grotesk', sans-serif; font-size:16px; color:var(--text); margin-bottom:6px; }
+  .empty-state p{ font-size:13px; }
+
+  /* ===================== TOAST ===================== */
+  .toast-stack{
+    position:fixed; bottom:24px; right:24px; z-index:60;
+    display:flex; flex-direction:column; gap:10px; align-items:flex-end;
+    max-width:calc(100vw - 32px);
+  }
+  .toast{
+    background:var(--panel); border:1px solid var(--line-soft);
+    border-left:3px solid var(--resolved);
+    padding:13px 18px; border-radius:10px; font-size:13px; color:var(--text);
+    box-shadow:var(--shadow-lg); display:flex; align-items:center; gap:10px;
+    animation:toastIn .3s cubic-bezier(.2,.8,.2,1) forwards, toastOut .3s ease forwards 2.6s;
+  }
+  @keyframes toastIn{ from{ opacity:0; transform:translateX(30px); } to{ opacity:1; transform:translateX(0); } }
+  @keyframes toastOut{ to{ opacity:0; transform:translateX(30px); } }
+
+  /* ===================== PRELOADER ===================== */
+  .preloader{
+    position:fixed; inset:0; z-index:999;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--ink);
+    transition:opacity .5s ease, transform .5s ease;
+  }
+  .preloader.exit{ opacity:0; transform:scale(1.04); pointer-events:none; }
+  .preloader-inner{ display:flex; flex-direction:column; align-items:center; gap:18px; }
+  .preloader-mark{
+    width:52px; height:52px; border-radius:14px;
+    background:linear-gradient(135deg, var(--signal), var(--resolved));
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:22px; color:#0b0f1a;
+    animation:markPulse 1.4s ease-in-out infinite, markSpinLoad 2.8s linear infinite;
+    box-shadow:0 12px 30px -8px rgba(94,234,212,.5);
+  }
+  .preloader-bar{ width:160px; height:3px; border-radius:99px; background:var(--line-soft); overflow:hidden; max-width:60vw; }
+  .preloader-bar span{
+    display:block; height:100%; width:0%; border-radius:99px;
+    background:linear-gradient(90deg, var(--signal), var(--resolved));
+    animation:barFill 1.1s cubic-bezier(.4,0,.2,1) forwards; animation-delay:.1s;
+  }
+  .preloader-label{
+    font-family:'Inter', sans-serif; font-size:12px; letter-spacing:.02em;
+    color:var(--text-faint); animation:labelFade 1.6s ease-in-out infinite;
+  }
+  .preloader-dots span{ display:inline-block; animation:dotBounce 1.2s ease-in-out infinite; }
+  .preloader-dots span:nth-child(2){ animation-delay:.15s; }
+  .preloader-dots span:nth-child(3){ animation-delay:.3s; }
+
+  @keyframes markPulse{ 0%,100%{ transform:scale(1); opacity:1; } 50%{ transform:scale(1.08); opacity:.85; } }
+  @keyframes markSpinLoad{ from{ filter:hue-rotate(0deg); } to{ filter:hue-rotate(360deg); } }
+  @keyframes barFill{ from{ width:0%; } to{ width:100%; } }
+  @keyframes labelFade{ 0%,100%{ opacity:.6; } 50%{ opacity:1; } }
+  @keyframes dotBounce{ 0%,60%,100%{ transform:translateY(0); opacity:.4; } 30%{ transform:translateY(-3px); opacity:1; } }
+
+  .topbar, .stats-row, .filter-bar, .table-wrap{ opacity:0; transform:translateY(14px); }
+  body.app-ready .topbar{ animation:fadeSlideUp .6s cubic-bezier(.2,.8,.2,1) forwards; }
+  body.app-ready .stats-row{ animation:fadeSlideUp .6s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:.08s; }
+  body.app-ready .filter-bar{ animation:fadeSlideUp .6s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:.16s; }
+  body.app-ready .table-wrap{ animation:fadeSlideUp .6s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:.22s; }
+  body.app-ready .sidebar{ opacity:1; }
+  @keyframes fadeSlideUp{ to{ opacity:1; transform:translateY(0); } }
+
+  /* ===================== RESPONSIVE BREAKPOINTS ===================== */
+
+  /* Laptop / small desktop */
+  @media (max-width: 1280px){
+    main{ padding:26px 24px 50px; }
+    .stats-row{ grid-template-columns:repeat(2, 1fr); }
+  }
+
+  /* Tablet */
+  @media (max-width: 1024px){
+    .app{ grid-template-columns:1fr; }
+
+    .sidebar{
+      position:fixed; top:0; left:0; height:100vh; width:280px;
+      transform:translateX(-100%);
+      box-shadow:20px 0 50px rgba(0,0,0,.4);
+    }
+    .sidebar.open{ transform:translateX(0); }
+    .sidebar-close{ display:flex; }
+    .sidebar-overlay{ display:block; }
+
+    .mobile-topbar{ display:flex; }
+
+    main{ padding:22px 20px 50px; }
+    h1{ font-size:26px; }
+
+    .stats-row{ grid-template-columns:repeat(2, 1fr); gap:12px; }
+
+    .topbar{ align-items:stretch; }
+    .topbar-actions{ width:100%; }
+    .search-box{ flex:1; min-width:0; width:auto; }
+  }
+
+  /* Phones */
+  @media (max-width: 640px){
+    main{ padding:16px 14px 40px; }
+
+    .page-eyebrow{ font-size:10.5px; }
+    h1{ font-size:22px; }
+    .page-sub{ font-size:13px; }
+
+    .topbar{ margin-bottom:18px; gap:14px; }
+    .topbar-actions{ flex-direction:column; align-items:stretch; gap:8px; }
+    .search-box{ width:100%; }
+    .btn{ justify-content:center; width:100%; }
+
+    .stats-row{ grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px; }
+    .stat-card{ padding:14px 14px; }
+    .stat-value{ font-size:21px; }
+    .stat-label{ font-size:11.5px; }
+    .stat-icon{ width:28px; height:28px; }
+    .stat-icon svg{ width:14px; height:14px; }
+
+    .filter-bar{ flex-direction:column; align-items:stretch; gap:10px; }
+    .chip-row{ overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+    .chip-row::-webkit-scrollbar{ height:0; }
+    .chip{ flex-shrink:0; }
+    .sort-select{ width:100%; }
+
+    .table-wrap{ border-radius:12px; }
+
+    .toast-stack{ left:12px; right:12px; align-items:stretch; }
+    .toast{ width:100%; }
+
+    .preloader-inner{ gap:14px; }
+    .preloader-mark{ width:44px; height:44px; font-size:18px; }
+  }
+
+  @media (max-width: 400px){
+    .stats-row{ grid-template-columns:1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+  }
+
+  [tabindex]:focus-visible, button:focus-visible, input:focus-visible, .t-row:focus-visible{
+    outline:2px solid var(--signal); outline-offset:2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== PRELOADER ===================== -->
+<div class="preloader" id="preloader">
+  <div class="preloader-inner">
+    <div class="preloader-mark">S</div>
+    <div class="preloader-bar"><span></span></div>
+    <div class="preloader-label" id="preloaderLabel">Loading ticket queue<span class="preloader-dots"><span>.</span><span>.</span><span>.</span></span></div>
+  </div>
+</div>
+
+<!-- ===================== MOBILE/TABLET TOPBAR ===================== -->
+<div class="mobile-topbar">
+  <button class="menu-btn" id="menuBtn" aria-label="Open menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <div class="brand-mark">S</div>
+  <div class="brand-name">SupportAI</div>
+</div>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app">
+
+  <!-- ===================== SIDEBAR / NAV ===================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <div>
+        <div class="brand-name">SupportAI</div>
+        <div class="brand-sub">Agent Console</div>
+      </div>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-group">
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item" href="{% url 'dashboard' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item active" href="{% url 'ticket_list' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        Tickets
+        <span class="nav-badge">{{ escalated_count }}</span>
+      </a>
+      <a class="nav-item" href="{% url 'automation_rules' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 015 5v2a5 5 0 01-10 0V7a5 5 0 015-5z"/><path d="M5 13a7 7 0 0014 0M12 20v2"/></svg>
+        Automation Rules
+      </a>
+      <a class="nav-item" href="{% url 'decision_log' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20l9-5-9-5-9 5 9 5z"/><path d="M3 15V9l9-5 9 5v6"/></svg>
+        Decision Log
+      </a>
+      <a class="nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+        Analytics
+      </a>
+    </nav>
+
+    <nav class="nav-group">
+      <div class="nav-label">Account</div>
+      <a class="nav-item" href="{% url 'settings' %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+        Settings
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="agent-status">
+        <span class="pulse-dot"></span>
+        <div>
+          <div class="agent-status-text">AI Agent — Active</div>
+          <div class="agent-status-sub">Watching 4 inboxes</div>
+        </div>
+      </div>
+      <div class="mini-stat-row"><span>AI resolved</span><b>{{ ai_resolved_count }}</b></div>
+      <div class="mini-stat-row"><span>Total tickets</span><b>{{ total_count }}</b></div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main>
+
+    <div class="topbar">
+      <div>
+        <div class="page-eyebrow">
+          <span class="pulse-dot" style="animation-duration:2.4s;"></span>
+          Live queue
+        </div>
+        <h1>Ticket Queue</h1>
+        <p class="page-sub">Every ticket the team is tracking — sorted and filtered below.</p>
+      </div>
+      <div class="topbar-actions">
+        <form method="get" class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" name="search" id="searchInput" placeholder="Search tickets, customers, IDs…" value="{{ search_query }}">
+          {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}">{% endif %}
+          {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+          {% if sort_filter %}<input type="hidden" name="sort" value="{{ sort_filter }}">{% endif %}
+        </form>
+        <a class="btn" href="{% url 'ticket_list' %}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l6 6L20 6"/></svg>
+          Clear filters
+        </a>
+        <a class="btn primary" href="{% url 'create_ticket' %}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          New ticket
+        </a>
+      </div>
+    </div>
+
+    <!-- ===================== STATS ===================== -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-icon c-signal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+        </div>
+        <div class="stat-value">{{ total_count }}</div>
+        <div class="stat-label">Total tickets</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-icon c-resolved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l6 6L20 6"/></svg></div>
+        </div>
+        <div class="stat-value">{{ ai_resolved_count }}</div>
+        <div class="stat-label">Auto-resolved by AI</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-icon c-escalate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9L2.6 18a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div>
+        </div>
+        <div class="stat-value">{{ escalated_count }}</div>
+        <div class="stat-label">Escalated to humans</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-icon c-pending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+        </div>
+        <div class="stat-value">{{ pending_review_count }}</div>
+        <div class="stat-label">Pending review</div>
+      </div>
+    </div>
+
+    <!-- ===================== FILTERS ===================== -->
+    <div class="filter-bar">
+      <div class="chip-row" id="filterChips">
+        <a class="chip {% if not status_filter %}active{% endif %}" href="?search={{ search_query }}&category={{ category_filter }}&sort={{ sort_filter }}">All tickets <span class="count">{{ total_count }}</span></a>
+        <a class="chip {% if status_filter == 'open' %}active{% endif %}" href="?status=open&search={{ search_query }}&category={{ category_filter }}&sort={{ sort_filter }}">Open</a>
+        <a class="chip {% if status_filter == 'progress' %}active{% endif %}" href="?status=progress&search={{ search_query }}&category={{ category_filter }}&sort={{ sort_filter }}">In progress</a>
+        <a class="chip {% if status_filter == 'resolved' %}active{% endif %}" href="?status=resolved&search={{ search_query }}&category={{ category_filter }}&sort={{ sort_filter }}">Resolved <span class="count">{{ ai_resolved_count }}</span></a>
+        <a class="chip {% if status_filter == 'escalated' %}active{% endif %}" href="?status=escalated&search={{ search_query }}&category={{ category_filter }}&sort={{ sort_filter }}">Escalated <span class="count">{{ escalated_count }}</span></a>
+
+        <!-- ===== Category filter dropdown — now loops over category_data (list of {'category', 'n'} dicts), no custom filter needed ===== -->
+        <div class="category-dropdown" id="categoryDropdown">
+          <button type="button" class="chip category-trigger" id="categoryTrigger" aria-haspopup="listbox" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+            <span id="categoryTriggerLabel">{% if category_filter %}{{ category_filter|capfirst }}{% else %}All categories{% endif %}</span>
+            <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="dropdown-panel" id="categoryPanel" role="listbox">
+            <a class="dropdown-option {% if not category_filter %}active{% endif %}" role="option"
+               href="?status={{ status_filter }}&search={{ search_query }}&sort={{ sort_filter }}">
+              All categories
+            </a>
+            {% for c in category_data %}
+            <a class="dropdown-option {% if category_filter == c.category %}active{% endif %}" role="option"
+               href="?category={{ c.category }}&status={{ status_filter }}&search={{ search_query }}&sort={{ sort_filter }}">
+              <span class="badge {{ c.category|lower }}"><span class="dot"></span>{{ c.category|capfirst }}</span>
+              <span class="count">{{ c.n }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <form method="get">
+        {% if search_query %}<input type="hidden" name="search" value="{{ search_query }}">{% endif %}
+        {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}">{% endif %}
+        {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+        <select class="sort-select" name="sort" onchange="this.form.submit()">
+          <option value="newest" {% if sort_filter == 'newest' %}selected{% endif %}>Sort: Newest first</option>
+          <option value="oldest" {% if sort_filter == 'oldest' %}selected{% endif %}>Sort: Oldest first</option>
+          <option value="priority" {% if sort_filter == 'priority' %}selected{% endif %}>Sort: Priority</option>
+        </select>
+      </form>
+    </div>
+
+    <!-- ===================== TABLE ===================== -->
+    <div class="table-wrap">
+      <div class="table-scroll">
+      <div class="t-head">
+        <span></span>
+        <span>Ticket</span>
+        <span>Subject</span>
+        <span>Customer</span>
+        <span>Category</span>
+        <span>Priority</span>
+        <span>Status</span>
+        <span>Received</span>
+        <span></span>
+      </div>
+      <div class="ticket-list" id="ticketList">
+        {% for t in tickets %}
+        <div class="t-row" data-href="{% url 'ticket_detail' t.pk %}" tabindex="0">
+          <span><input type="checkbox" onclick="event.stopPropagation()"></span>
+          <span class="t-id mono">#{{ t.id }}</span>
+          <span class="t-subject">
+            <span class="t-subject-title">{{ t.title }}</span>
+            <span class="t-subject-preview">{{ t.message|truncatechars:90 }}</span>
+          </span>
+          <span class="t-customer">
+            <span class="avatar">{{ t.customer_name|slice:":2"|upper }}</span><span>{{ t.customer_name }}</span>
+          </span>
+          <span class="badge {{ t.category|lower }}"><span class="dot"></span>{{ t.category|default:"—"|capfirst }}</span>
+          <span class="priority-badge {{ t.priority|lower }}">{{ t.priority|default:"—"|capfirst }}</span>
+          <span class="status-pill {{ t.status }}">{{ t.status|capfirst }}</span>
+          <span class="t-time">{{ t.created_at|timesince }} ago</span>
+          <span class="t-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
+        </div>
+        {% empty %}
+        <div class="empty-state show">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <h3>No matching tickets</h3>
+          <p>Try a different filter or search term.</p>
+        </div>
+        {% endfor %}
+      </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast-stack" id="toastStack">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="toast" style="border-left-color: var(--resolved)">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<script>
+  document.querySelectorAll('.t-row[data-href]').forEach(function(row){
+    row.addEventListener('click', function(){ window.location.href = row.dataset.href; });
+    row.addEventListener('keypress', function(e){ if(e.which === 13) window.location.href = row.dataset.href; });
+  });
+
+  document.querySelectorAll('.toast').forEach(function(t){
+    setTimeout(function(){ t.remove(); }, 3000);
+  });
+
+  // Category dropdown open/close
+  (function(){
+    const dropdown = document.getElementById('categoryDropdown');
+    const trigger = document.getElementById('categoryTrigger');
+    if(!dropdown || !trigger) return;
+
+    function close(){
+      dropdown.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+    trigger.addEventListener('click', function(e){
+      e.stopPropagation();
+      const isOpen = dropdown.classList.toggle('open');
+      trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+    document.getElementById('categoryPanel').addEventListener('click', function(e){ e.stopPropagation(); });
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
+  })();
+
+  // Mobile/tablet sidebar toggle
+  (function(){
+    const sidebar = document.getElementById('sidebar');
+    const menuBtn = document.getElementById('menuBtn');
+    const closeBtn = document.getElementById('sidebarClose');
+    const overlay = document.getElementById('sidebarOverlay');
+    if(!sidebar || !menuBtn) return;
+
+    function openSidebar(){
+      sidebar.classList.add('open');
+      overlay.classList.add('show');
+    }
+    function closeSidebar(){
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+    }
+    menuBtn.addEventListener('click', openSidebar);
+    closeBtn.addEventListener('click', closeSidebar);
+    overlay.addEventListener('click', closeSidebar);
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeSidebar(); });
+  })();
+
+  // Preloader
+  (function(){
+    const loader = document.getElementById('preloader');
+    if(!loader) return;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const holdTime = reduced ? 100 : 1300;
+    const exitTime = reduced ? 0 : 550;
+    setTimeout(function(){
+      loader.classList.add('exit');
+      document.body.classList.add('app-ready');
+      setTimeout(function(){ loader.remove(); }, exitTime);
+    }, holdTime);
+  })();
+</script>
+</body>
+</html>
