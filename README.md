@@ -74,51 +74,6 @@ Each processed ticket creates a `DecisionLog` record containing the classificati
 ### Test ticket generation
 The application can choose a random customer message from `ml_training/cleaned_dataset.csv`, create a test ticket, and send it through the same processing pipeline as a normal ticket.
 
-## How the application works
-
-The main ticket-processing flow is:
-
-```text
-User submits a ticket
-        |
-        v
-Django creates a Ticket record
-        |
-        v
-classifier.py
-  - word TF-IDF transform
-  - character TF-IDF transform
-  - category prediction
-  - intent prediction
-  - priority prediction
-  - confidence calculation
-        |
-        v
-response_generator.py
-  - creates a category/intent-based draft response
-        |
-        v
-engine.py
-  - checks active AutomationRule records
-  - applies rule / confidence decision policy
-        |
-        v
-Ticket is updated
-  - category, intent, priority
-  - ML action and confidence
-  - final action and reason
-  - generated response
-  - status
-        |
-        v
-DecisionLog record is created
-        |
-        v
-Ticket list / detail / dashboard
-```
-
-The ML model makes a prediction; it does not independently enforce the final action. The decision engine is a separate layer that checks configured rules and applies its own confidence thresholds.
-
 ## Machine-learning pipeline
 
 The model-training code is in `ml_training/`.
