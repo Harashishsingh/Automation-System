@@ -160,21 +160,6 @@ The archive includes additional model artifacts such as `final_hard_svm_model.pk
 
 ### Confidence calculation
 
-`LinearSVC` does not provide calibrated class probabilities. The classifier therefore converts the decision-function margin into a bounded score:
-
-```text
-confidence = margin / (1 + margin)
-```
-
-For multiclass predictions, the margin is the difference between the highest and second-highest class scores. The overall confidence is a weighted combination:
-
-```text
-overall confidence =
-    50% category confidence
-  + 25% intent confidence
-  + 25% priority confidence
-```
-
 This is a heuristic confidence score, **not a statistically calibrated probability**.
 
 The classifier's initial ML action is:
